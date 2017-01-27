@@ -1,0 +1,54 @@
+---
+resources:
+- name: docker-image-livestreamer-alpine
+  type: docker-image
+  source:
+    repository: vanaxe/livestreamer-alpine
+    username: {{dockerhub_user}}
+    password: {{dockerhub_password}}
+
+- name: livestreamer-alpine
+  type: git
+  source:
+    repo: VanAxe/livestreamer-alpine
+    private_key: {{deploy_key}}
+    ignore_paths:
+    - ci/*.yml
+    - ci/version
+    - README.md
+    uri: git@github.com:VanAxe/livestreamer-alpine.git
+
+- name: version
+  type: semver
+  source:
+    driver: git
+    branch: master
+    file: ci/version
+    private_key: {{deploy_key}}
+    uri: git@github.com:VanAxe/livestreamer-alpine.git
+
+- name: livestreamer-releases
+  type: git
+  source:
+    repo: chrippa/livestreamer.git
+    private_key: {{deploy_key}}
+    tag_filter: 'v*.*.*'
+    uri: git@github.com:chrippa/livestreamer.git
+
+jobs:
+- name: build-image
+  plan:
+  - aggregate:
+    - get: livestreamer-alpine
+      trigger: true
+    - get: version
+      params: {bump: minor}
+    - get: livestreamer-releases
+      trigger: true
+  - put: docker-image-livestreamer-alpine
+    params:
+      build: livestreamer-alpine
+      tag: livestreamer-alpine/ci/version
+      latest: true
+  - put: version
+    params: {file: version/version}
